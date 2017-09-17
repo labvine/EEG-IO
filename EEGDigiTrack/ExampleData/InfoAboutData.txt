@@ -1,0 +1,31 @@
+Description of files
+--------------------
+data.1
+	File used for the extraction of true sampling rate used during recording.
+data.evx
+    XML-like file with basic information about recording, eg. time of the recording begining.
+data-unfiltered.edf
+    Raw EEG recording exported from EEGDigiTrack without any offline filters.
+data-filtered.edf
+    Raw EEG recording exported from EEGDigiTrack with bandpass filter 3-70 Hz.
+
+edf-raw-unfiltered.*
+edf-raw-filtered.*
+    Data files created from data.* files by Example.py script, which use UtilityReadEDF.py script's functions.
+
+Description of the recording conditions
+---------------------------------------
+Channels
+    Ground - Cz, reference - linked ear lobes, Fp1, Fp2, F3, F4, C3, C4, P3, P4, O1, O2.
+Sampling rate
+    512
+Amplifier
+    EXG-32
+Recording paradigm
+    Data is from one-person recording performed simultaneously with transorbital alternating current stimulation (ACS).
+    Current stimulation (40 μA) was applied via four transorbitally located electrodes.
+
+    resting EEG   10 Hz ACS   resting EEG   20 Hz ACS   resting EEG   40 Hz ACS   resting EEG
+    ----------- | --------- | ----------- | --------- | ----------- | --------- | -----------
+    120 s         80 s        120 s         80 s        120 s          80 s       120 s
+    -----------------------------------------------------------------------------------------> time

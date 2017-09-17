@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<events formatVersion="1.0">
+	<type id="0x1000011" strId="Technical_ExamStart" name="Exam Start" keywords="begin" color="909090" shape="Tag" attributes="0x10007">
+		<event time="1505488988733410">
+			<info type="2" time="2017-09-15T17:23:08.733+02:00"/>
+		</event>
+	</type>
+	<type id="0x1000013" strId="Technical_ExamPause" name="Pause" keywords="break" description="Exam/Recording pause" color="909090" shape="Tag" attributes="0x10007">
+		<event time="1505489748844097">
+			<info type="2" time="2017-09-15T17:35:48.844+02:00"/>
+		</event>
+	</type>
+</events>
