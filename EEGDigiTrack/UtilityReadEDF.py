@@ -10,8 +10,6 @@ import numpy as np
 import mne
 
 
-
-    
 def events_for_MNE(event_sample_indexes, event_id):
     """
     Process the events info untill it is in the format specified by MNE, i.e. ndarray with 3 columns.
