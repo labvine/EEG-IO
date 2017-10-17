@@ -37,10 +37,11 @@ def events_for_MNE(event_sample_indexes, event_id):
     return events
 
 
-def parse_events(event_times, timestamp):
+def get_events_index(event_times, timestamp):
+    #NOTE - old name was parse events
     """
     Prepare the events for MNE format. Convert event times to sample number relative to the first eeg sample.
-    :param event_time_columns (DataFrame): each column represents the times of events of the same type. 
+    :param event_times (DataFrame): each column represents the times of events of the same type. 
     :param timestamp(1-d array[datetime64]): datetime vector with times of eeg samples.  
     :return event_sample_indexes(Dict): key is the event name, value is an array of sample indexes
     """
@@ -67,9 +68,9 @@ def MNE_Read_EDF(path):
     assert len(edf_path) == 1, edf_path # There can only be one edf in the directory.
     edf_path = edf_path[0] 
     
-    raw_mne =  mne.io.read_raw_edf(edf_path,stim_channel = None, preload = True)
+    raw_mne =  mne.io.read_raw_edf(edf_path,stim_channel = None, preload = True, verbose='WARNING')
     #Reorder channels and drop unused ones.
-    
+  #  print(raw_mne.info['ch_names'])
     # Fix the sampling rate info saved in the original sygnal.edf. Our software does not save it with high precision in the .edf file, so we will replace it manually.
     exact_sr = get_exact_sampling_rate(path) # Get the high precision sampling rate
     raw_mne.info.update({'sfreq' : exact_sr }) # Update the mne info with the high precision sampling rate
@@ -100,6 +101,8 @@ def get_exact_sampling_rate(path_to_dir):
         binary_file.seek(490 + (89 * power_of_two))
         couple_bytes = binary_file.read(8)
         sampling_rate = struct.unpack('d', couple_bytes)
+        print(sampling_rate[0])
+        assert 100 <= sampling_rate[0] <= 1024, 'Sampling rate funny. try different power_of_two, can be either 32 or 64'
         return sampling_rate[0]
 
 
@@ -160,7 +163,7 @@ def exact_timestamp(path_to_dir, n_samples, sampling_rate):
 
     # Set the first value using the first sample time saved by DigiTrack in .evx file.
     df = read_xml(path_to_dir)
-    print("INFO", df)
+ #   print("INFO", df)
     timestamp[0] = read_xml(path_to_dir)["DateTime"].iloc[0]
 
     # Create the time vector by adding sample duration to each next vector index.
@@ -175,10 +178,11 @@ def fix_montage(raw, timestamp):
     MNE can only use a standard montage if the electrodes come in specific order.
     :return (mne.raw): Raw object with channels in mne-specific order.
     """
-    # These channels are not recorded during an EEG experiment.
-    exclude = ['SaO2 SpO2', 'HR HR','Pulse Plet']
-    if 'SaO2 SpO2' in raw.ch_names: raw.drop_channels(exclude)
-    
+    # These channels are not recorded during an EEG experiment or are not included in standard 10/20 montage.
+    non_eeg = ['SaO2 SpO2', 'HR HR','Pulse Plet', 'ExG1', 'ExG2', 'EEG A1', 'EEG A2']
+    exclude = list(set(non_eeg).intersection(raw.ch_names))
+    raw.drop_channels(exclude)
+       
     raw.info['ch_names'] = [name.split(' ')[-1] for name in raw.info['ch_names']]
 
     orig_names = raw.ch_names
