@@ -1,6 +1,9 @@
-# Script is for reading *.edf files exported from EEG DigiTrack Elmiko's amplifier with addition of information
-# about appropriate sampling rate drawn from *.1 file, as well as information about the time of starting
-# the signal recording took from file *.evx.
+# This script is for reading *.edf files exported from DigiTrack. 
+# The .edf file exported from digitrack does not contain timestamp information, which is needed for synchronizing EEG signal with experimental data.
+# The timestamp vector for EEG will be created using information from other files created by digitrack:
+#    - The time of the first EEG sample is read from *.evx file.
+#    - The sampling rate of the EEG signal is read from *.1 file. 
+
 
 import glob
 import struct
@@ -9,53 +12,9 @@ import pandas as pd
 import numpy as np
 import mne
 
-
-
-    
-def events_for_MNE(event_sample_indexes, event_id):
-    """
-    Process the events info untill it is in the format specified by MNE, i.e. ndarray with 3 columns.
-    :param event_sample_indexes(Dict): key is the event name, value is an array of sample indexes.
-    :param event_id(Dict): key is the event name, value is its' integer code.
-    :return events(ndarray): 2-dimensional array of events as required by MNE (ex. http://martinos.org/mne/dev/auto_tutorials/plot_creating_data_structures.html).
-    """
-    events = pd.DataFrame(columns = ['sample_nr',  'code'])
-    # Stack vertically all sample numbers for different events
-    for event_label, sample_numbers in event_sample_indexes.items():
-        tmp = pd.DataFrame(sample_numbers, columns = ['sample_nr'])
-        tmp['code'] = event_id[event_label]
-        # stack 
-        events =  events.append(tmp)
-   
-    # Sort events chronologically
-    events = events.sort_values(by = 'sample_nr')
-    # Change to numpy array of ints
-    events = events.as_matrix().astype('int')
-    # MNE needs an extra column of zeros in the middle, it won't be used but has to be there
-    events = np.insert(events, 1, 0, axis=1)
-    
-    return events
-
-
-def get_events_index(event_times, timestamp):
-    #NOTE - old name was parse events
-    """
-    Prepare the events for MNE format. Convert event times to sample number relative to the first eeg sample.
-    :param event_times (DataFrame): each column represents the times of events of the same type. 
-    :param timestamp(1-d array[datetime64]): datetime vector with times of eeg samples.  
-    :return event_sample_indexes(Dict): key is the event name, value is an array of sample indexes
-    """
-    event_sample_indexes = {}
-    
-    #Replace the times with sample number relative to eeg signal.
-    for col in event_times:
-        time_col = pd.to_datetime(event_times[col].dropna())
-        time_col = (time_col - timestamp[0]).as_matrix()
-        samples = np.digitize(time_col.astype('float'), (timestamp - timestamp[0]).astype('float'), right = True)
-        event_sample_indexes[col] = samples
-    
-    return event_sample_indexes
-
+"""
+MNE_Read_EDF is the main function that calls all other functions. 
+"""
 
 def MNE_Read_EDF(path):
     """
@@ -68,7 +27,7 @@ def MNE_Read_EDF(path):
     assert len(edf_path) == 1, edf_path # There can only be one edf in the directory.
     edf_path = edf_path[0] 
     
-    raw_mne =  mne.io.read_raw_edf(edf_path,stim_channel = None, preload = True, verbose='WARNING')
+    raw_mne =  mne.io.read_raw_edf(edf_path, stim_channel = None, preload = True, verbose='WARNING')
     #Reorder channels and drop unused ones.
   #  print(raw_mne.info['ch_names'])
     # Fix the sampling rate info saved in the original sygnal.edf. Our software does not save it with high precision in the .edf file, so we will replace it manually.
@@ -179,7 +138,15 @@ def fix_montage(raw, timestamp):
     :return (mne.raw): Raw object with channels in mne-specific order.
     """
     # These channels are not recorded during an EEG experiment or are not included in standard 10/20 montage.
+    
     non_eeg = ['SaO2 SpO2', 'HR HR','Pulse Plet', 'ExG1', 'ExG2', 'EEG A1', 'EEG A2']
+    
+    #Check if EOG was recorded. If so, save it so it can later be added to the data.
+    EOG_CHANNEL_FOUND = False
+    if('ExG1' in raw.ch_names): 
+        eog_data = raw.copy().pick_channels(['ExG1']).get_data()
+        EOG_CHANNEL_FOUND = True
+        
     exclude = list(set(non_eeg).intersection(raw.ch_names))
     raw.drop_channels(exclude)
        
@@ -207,8 +174,13 @@ def fix_montage(raw, timestamp):
             #meas_date = [timestamp[0], 0] # Time of the first sample and something else. Not well documented.
             )
     
+    # Create new dataset with reordered channels
     new_raw = mne.io.RawArray(reordered_data, new_info)
-    
+    # Set electrode localizations using standard 1020 montage
     new_raw.set_montage(montage)
     
-    return new_raw
+    if(EOG_CHANNEL_FOUND): # Add it to other channels
+        eog_channel = mne.io.RawArray(eog_data, mne.create_info( ch_names= ['ExG1'], sfreq = raw.info['sfreq'], ch_types = ['eog']))
+        new_raw = new_raw.add_channels([eog_channel])
+ 
+    return  new_raw
